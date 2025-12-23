@@ -45,6 +45,7 @@ export const mockDataService = {
                 email: 'admin@test.com',
                 password: 'password',
                 role: 'super_admin',
+                status: 'Active',
                 avatar: 'https://ui-avatars.com/api/?name=Super+Admin&background=6366f1&color=fff'
             },
             {
@@ -53,6 +54,7 @@ export const mockDataService = {
                 email: 'ecom@test.com',
                 password: 'password',
                 role: 'ecommerce_admin',
+                status: 'Active',
                 avatar: 'https://ui-avatars.com/api/?name=Ecom+Admin&background=10b981&color=fff'
             },
             {
@@ -61,12 +63,67 @@ export const mockDataService = {
                 email: 'dev@test.com',
                 password: 'password',
                 role: 'dev_admin',
+                status: 'Active',
                 avatar: 'https://ui-avatars.com/api/?name=Dev+Admin&background=f59e0b&color=fff'
             }
         ];
 
         localStorage.setItem(key, JSON.stringify(users));
         return users;
+    },
+
+    // Admin Alias & Helpers
+    getAdmins: () => mockDataService.getUsers(),
+
+    addAdmin: (admin) => {
+        const users = mockDataService.getUsers();
+        const newAdmin = {
+            id: faker.string.uuid(),
+            password: 'password', // Default
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(admin.name)}&background=random`,
+            status: 'Active',
+            sharePercentage: 0,
+            ...admin
+        };
+        users.push(newAdmin);
+        localStorage.setItem('erp_mock_users', JSON.stringify(users));
+        return { success: true, data: newAdmin };
+    },
+
+    updateAdmin: (id, updates) => {
+        const users = mockDataService.getUsers();
+        const index = users.findIndex(u => u.id === id);
+        if (index !== -1) {
+            users[index] = { ...users[index], ...updates };
+            localStorage.setItem('erp_mock_users', JSON.stringify(users));
+            return { success: true, data: users[index] };
+        }
+        return { success: false, error: 'User not found' };
+    },
+
+    deleteAdmin: (id) => {
+        const users = mockDataService.getUsers();
+        const newUsers = users.filter(u => u.id !== id);
+        localStorage.setItem('erp_mock_users', JSON.stringify(newUsers));
+        return { success: true };
+    },
+
+    // Compensation Config
+    getCompensationConfig: () => {
+        const key = 'erp_mock_comp_config';
+        const stored = localStorage.getItem(key);
+        if (stored) return JSON.parse(stored);
+
+        const config = { basePool: 50000 };
+        localStorage.setItem(key, JSON.stringify(config));
+        return config;
+    },
+
+    updateCompensationConfig: (updates) => {
+        const config = mockDataService.getCompensationConfig();
+        const newConfig = { ...config, ...updates };
+        localStorage.setItem('erp_mock_comp_config', JSON.stringify(newConfig));
+        return { success: true, data: newConfig };
     },
 
     // Employees
