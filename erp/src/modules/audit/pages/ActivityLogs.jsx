@@ -13,14 +13,18 @@ import {
     Edit2,
     Trash2,
     LogIn,
-    Download
+    Download,
+    FileDown
 } from 'lucide-react';
+import { useToast } from '../../../context/ToastContext';
 
 export default function ActivityLogs() {
     const { data: logs, isLoading } = useQuery({
         queryKey: ['logs'],
         queryFn: mockDataService.getLogs,
     });
+
+    const { showToast } = useToast();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [moduleFilter, setModuleFilter] = useState('All');
@@ -51,6 +55,34 @@ export default function ActivityLogs() {
         return 'bg-slate-100 text-slate-600 border-slate-200';
     };
 
+    const handleExport = () => {
+        if (!filteredLogs || filteredLogs.length === 0) return;
+
+        const headers = ['User', 'Action', 'Module', 'IP Address', 'Timestamp'];
+        const csvContent = [
+            headers.join(','),
+            ...filteredLogs.map(log => [
+                `"${log.user}"`,
+                `"${log.action}"`,
+                `"${log.module}"`,
+                `"${log.ip}"`,
+                `"${new Date(log.timestamp).toLocaleString()}"`
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `activity_logs_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        showToast('Activity logs exported successfully', 'success');
+    };
+
     return (
         <div className="min-h-screen bg-slate-50">
             <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-8">
@@ -63,6 +95,14 @@ export default function ActivityLogs() {
                         </h1>
                         <p className="text-slate-500 mt-1">Monitor system events and user actions</p>
                     </div>
+
+                    <button
+                        onClick={handleExport}
+                        className="w-full md:w-auto px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95"
+                    >
+                        <FileDown className="w-4 h-4" />
+                        Export Logs
+                    </button>
                 </div>
 
                 {/* Filters */}
@@ -99,8 +139,8 @@ export default function ActivityLogs() {
                         <div key={log.id} className="relative pl-8 sm:pl-10 group">
                             {/* Timeline Dot */}
                             <div className={`absolute left-0 sm:left-4 top-1.5 -translate-x-[5px] w-3 h-3 rounded-full border-2 border-white ring-2 ring-slate-100 ${log.action.includes('Deleted') ? 'bg-rose-500' :
-                                    log.action.includes('Created') ? 'bg-emerald-500' :
-                                        log.action.includes('Logged') ? 'bg-indigo-500' : 'bg-blue-500'
+                                log.action.includes('Created') ? 'bg-emerald-500' :
+                                    log.action.includes('Logged') ? 'bg-indigo-500' : 'bg-blue-500'
                                 }`}></div>
 
                             {/* Card Content */}
@@ -148,6 +188,6 @@ export default function ActivityLogs() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

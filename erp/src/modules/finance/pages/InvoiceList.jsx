@@ -13,6 +13,8 @@ import {
     Trash2
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import ConfirmationModal from '../../../components/ConfirmationModal';
+import InvoiceStatusSelect from '../components/invoices/InvoiceStatusSelect';
 
 
 export default function InvoiceList() {
@@ -20,6 +22,7 @@ export default function InvoiceList() {
     const [showForm, setShowForm] = useState(false);
     const [statusFilter, setStatusFilter] = useState('All');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
 
     const queryClient = useQueryClient();
 
@@ -35,7 +38,10 @@ export default function InvoiceList() {
 
     const deleteInvoiceMutation = useMutation({
         mutationFn: (id) => new Promise(resolve => setTimeout(() => resolve(mockDataService.deleteInvoice(id)), 300)),
-        onSuccess: () => queryClient.invalidateQueries(['invoices'])
+        onSuccess: () => {
+            queryClient.invalidateQueries(['invoices']);
+            setDeleteModal({ isOpen: false, id: null });
+        }
     });
 
     const updateStatusMutation = useMutation({
@@ -58,23 +64,7 @@ export default function InvoiceList() {
         return matchesSearch && matchesStatus;
     });
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Paid': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-            case 'Pending': return 'bg-amber-50 text-amber-700 border-amber-100';
-            case 'Overdue': return 'bg-red-50 text-red-700 border-red-100';
-            default: return 'bg-slate-50 text-slate-700 border-slate-100';
-        }
-    };
 
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'Paid': return <CheckCircle className="w-3 h-3" />;
-            case 'Pending': return <Clock className="w-3 h-3" />;
-            case 'Overdue': return <AlertCircle className="w-3 h-3" />;
-            default: return null;
-        }
-    };
 
     if (isLoading) return <div className="p-8 text-center text-slate-500">Loading invoices...</div>;
 
@@ -188,27 +178,18 @@ export default function InvoiceList() {
                                             ${invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <button
-                                                onClick={() => updateStatusMutation.mutate({
+                                            <InvoiceStatusSelect
+                                                currentStatus={invoice.status}
+                                                onUpdate={(newStatus) => updateStatusMutation.mutate({
                                                     id: invoice.id,
-                                                    status: invoice.status === 'Paid' ? 'Pending' : 'Paid'
+                                                    status: newStatus
                                                 })}
-                                                className={clsx(
-                                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase border transition-all hover:bg-opacity-80",
-                                                    getStatusColor(invoice.status)
-                                                )}>
-                                                {getStatusIcon(invoice.status)}
-                                                {invoice.status}
-                                            </button>
+                                            />
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button
-                                                    onClick={() => {
-                                                        if (window.confirm('Delete this invoice?')) {
-                                                            deleteInvoiceMutation.mutate(invoice.id);
-                                                        }
-                                                    }}
+                                                    onClick={() => setDeleteModal({ isOpen: true, id: invoice.id })}
                                                     className="text-slate-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
                                                     title="Delete Invoice"
                                                 >
@@ -234,17 +215,13 @@ export default function InvoiceList() {
                                     </div>
                                     <div className="font-extrabold text-slate-900 text-lg">{invoice.customer}</div>
                                 </div>
-                                <button
-                                    onClick={() => updateStatusMutation.mutate({
+                                <InvoiceStatusSelect
+                                    currentStatus={invoice.status}
+                                    onUpdate={(newStatus) => updateStatusMutation.mutate({
                                         id: invoice.id,
-                                        status: invoice.status === 'Paid' ? 'Pending' : 'Paid'
+                                        status: newStatus
                                     })}
-                                    className={clsx(
-                                        "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase border",
-                                        getStatusColor(invoice.status)
-                                    )}>
-                                    {invoice.status}
-                                </button>
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 text-sm border-y-2 border-slate-100 py-4">
@@ -264,11 +241,7 @@ export default function InvoiceList() {
 
                             <div className="flex justify-end pt-1">
                                 <button
-                                    onClick={() => {
-                                        if (window.confirm('Delete this invoice?')) {
-                                            deleteInvoiceMutation.mutate(invoice.id);
-                                        }
-                                    }}
+                                    onClick={() => setDeleteModal({ isOpen: true, id: invoice.id })}
                                     className="text-slate-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
                                 >
                                     <Trash2 className="w-5 h-5" />
@@ -279,6 +252,17 @@ export default function InvoiceList() {
                     ))}
                 </div>
             </div>
-        </div>
+
+
+            <ConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ isOpen: false, id: null })}
+                onConfirm={() => deleteInvoiceMutation.mutate(deleteModal.id)}
+                title="Delete Invoice?"
+                message="Are you sure you want to delete this invoice? This action cannot be undone."
+                confirmText="Delete"
+                variant="destructive"
+            />
+        </div >
     );
 }

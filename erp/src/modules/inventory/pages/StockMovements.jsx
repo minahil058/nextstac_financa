@@ -10,6 +10,7 @@ import {
     Plus,
     Trash2
 } from 'lucide-react';
+import ConfirmationModal from '../../../components/ConfirmationModal';
 
 
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
@@ -18,6 +19,17 @@ export default function StockMovements() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // Delete Confirmation State
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [movementToDelete, setMovementToDelete] = useState(null);
+
+    // Filters
+    const [typeFilter, setTypeFilter] = useState('All');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const types = ['All', 'In', 'Out', 'Adjustment'];
+
     const { data: movements, isLoading } = useQuery({
         queryKey: ['stock_movements'],
         queryFn: mockDataService.getStockMovements,
@@ -25,7 +37,11 @@ export default function StockMovements() {
 
     const deleteMovementMutation = useMutation({
         mutationFn: (id) => new Promise(resolve => setTimeout(() => resolve(mockDataService.deleteStockMovement(id)), 300)),
-        onSuccess: () => queryClient.invalidateQueries(['stock_movements'])
+        onSuccess: () => {
+            queryClient.invalidateQueries(['stock_movements']);
+            setIsDeleteModalOpen(false);
+            setMovementToDelete(null);
+        }
     });
 
     const addMovementMutation = useMutation({
@@ -36,12 +52,23 @@ export default function StockMovements() {
         }
     });
 
-    const [searchTerm, setSearchTerm] = useState('');
+    const handleDeleteClick = (movement) => {
+        setMovementToDelete(movement);
+        setIsDeleteModalOpen(true);
+    };
 
-    const filteredMovements = movements?.filter(m =>
-        m.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.reference.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const handleConfirmDelete = () => {
+        if (movementToDelete) {
+            deleteMovementMutation.mutate(movementToDelete.id);
+        }
+    };
+
+    const filteredMovements = movements?.filter(m => {
+        const matchesSearch = m.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            m.reference.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesType = typeFilter === 'All' || m.type === typeFilter;
+        return matchesSearch && matchesType;
+    });
 
     if (isLoading) return <div className="p-8 text-center">Loading stock history...</div>;
 
@@ -51,6 +78,16 @@ export default function StockMovements() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={(data) => addMovementMutation.mutate(data)}
+            />
+
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Log?"
+                message={`Are you sure you want to delete this stock movement log (${movementToDelete?.reference})?`}
+                confirmText={deleteMovementMutation.isPending ? "Deleting..." : "Delete Log"}
+                variant="danger"
             />
 
             <div className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-6">
@@ -67,8 +104,8 @@ export default function StockMovements() {
                     </button>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="relative">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-1">
                         <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
@@ -77,6 +114,46 @@ export default function StockMovements() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                    </div>
+
+                    {/* Type Filter */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsFilterOpen(!isFilterOpen)}
+                            className={`px-4 py-2 border rounded-lg flex items-center gap-2 font-medium transition-all ${typeFilter !== 'All'
+                                ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
+                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                        >
+                            <Filter className="w-4 h-4" />
+                            {typeFilter === 'All' ? 'Movement Type' : typeFilter}
+                        </button>
+
+                        {isFilterOpen && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)} />
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-20 animate-in fade-in zoom-in-95 duration-200">
+                                    {types.map((type) => (
+                                        <button
+                                            key={type}
+                                            onClick={() => {
+                                                setTypeFilter(type);
+                                                setIsFilterOpen(false);
+                                            }}
+                                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between ${typeFilter === type
+                                                ? 'bg-indigo-50 text-indigo-700'
+                                                : 'text-slate-600 hover:bg-slate-50'
+                                                }`}
+                                        >
+                                            {type}
+                                            {typeFilter === type && (
+                                                <div className="w-2 h-2 rounded-full bg-indigo-600" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -110,9 +187,13 @@ export default function StockMovements() {
                                                 <span className="flex items-center gap-1 text-green-600 font-medium">
                                                     <ArrowDownLeft className="w-4 h-4" /> In
                                                 </span>
-                                            ) : (
+                                            ) : move.type === 'Out' ? (
                                                 <span className="flex items-center gap-1 text-red-600 font-medium">
                                                     <ArrowUpRight className="w-4 h-4" /> Out
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-1 text-amber-600 font-medium">
+                                                    <History className="w-4 h-4" /> {move.type}
                                                 </span>
                                             )}
                                         </td>
@@ -124,11 +205,7 @@ export default function StockMovements() {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button
-                                                onClick={() => {
-                                                    if (window.confirm('Delete this stock log?')) {
-                                                        deleteMovementMutation.mutate(move.id);
-                                                    }
-                                                }}
+                                                onClick={() => handleDeleteClick(move)}
                                                 className="text-slate-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors"
                                                 title="Delete Log"
                                             >

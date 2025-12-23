@@ -48,15 +48,16 @@ export default function EmployeeList() {
     const [editingEmployee, setEditingEmployee] = useState(null);
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, name: '' });
 
+    // Helper to get default filter based on role
+    const getRoleBasedFilter = () => {
+        if (user?.role === 'dev_admin') return 'Development';
+        if (user?.role === 'ecommerce_admin') return 'Ecommerce';
+        return 'All Departments';
+    };
+
     // Set initial filter based on role
     useEffect(() => {
-        if (user?.role === 'dev_admin') {
-            setDepartmentFilter('Development');
-        } else if (user?.role === 'ecommerce_admin') {
-            setDepartmentFilter('Ecommerce');
-        } else {
-            setDepartmentFilter('All Departments');
-        }
+        setDepartmentFilter(getRoleBasedFilter());
     }, [user]);
 
     const { data: employees, isLoading, error } = useQuery({
@@ -456,7 +457,7 @@ export default function EmployeeList() {
                             className="mt-6"
                             onClick={() => {
                                 setSearchTerm('');
-                                setDepartmentFilter('All Departments');
+                                setDepartmentFilter(getRoleBasedFilter());
                                 setStatusFilter('All');
                                 setPage(1);
                             }}

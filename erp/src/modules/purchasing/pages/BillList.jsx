@@ -13,11 +13,14 @@ import {
     Briefcase
 } from 'lucide-react';
 import BillModal from '../components/BillModal';
+import ConfirmationModal from '../../../components/ConfirmationModal';
 
 export default function BillList() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [billToDelete, setBillToDelete] = useState(null);
 
     const { data: bills, isLoading } = useQuery({
         queryKey: ['bills'],
@@ -68,6 +71,20 @@ export default function BillList() {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setBillToDelete(null);
+                }}
+                onConfirm={() => {
+                    if (billToDelete) {
+                        deleteMutation.mutate(billToDelete.id);
+                    }
+                }}
+                title="Delete Bill"
+                message={billToDelete ? `Are you sure you want to delete bill ${billToDelete.billNumber}? This action cannot be undone.` : "Are you sure?"}
+            />
             <BillModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -149,9 +166,8 @@ export default function BillList() {
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => {
-                                        if (window.confirm('Delete this Bill?')) {
-                                            deleteMutation.mutate(bill.id);
-                                        }
+                                        setBillToDelete(bill);
+                                        setIsDeleteModalOpen(true);
                                     }}
                                     className="w-full py-2 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-100"
                                 >
@@ -201,9 +217,8 @@ export default function BillList() {
                                     <td className="px-6 py-4 text-right">
                                         <button
                                             onClick={() => {
-                                                if (window.confirm('Delete this Bill?')) {
-                                                    deleteMutation.mutate(bill.id);
-                                                }
+                                                setBillToDelete(bill);
+                                                setIsDeleteModalOpen(true);
                                             }}
                                             className="text-slate-400 hover:text-red-600 transition-colors"
                                         >

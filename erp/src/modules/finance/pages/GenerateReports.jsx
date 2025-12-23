@@ -12,6 +12,9 @@ import {
 } from 'lucide-react';
 import { mockDataService } from '../../../services/mockDataService';
 import { calculateAccountBalance } from '../../../utils/accountingCalculations';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 export default function GenerateReports() {
     const [period, setPeriod] = useState('this_month'); // this_week, this_month, this_year, last_week, last_month, last_year
@@ -131,6 +134,112 @@ export default function GenerateReports() {
 
     const formatCurrency = (val) => val.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     const formatDate = (d) => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    const handleDownloadPDF = () => {
+        const doc = new jsPDF();
+        const reportTitle = activeTab === 'custom' ? 'Custom Financial Report' : `${period.replace('_', ' ').toUpperCase()} REPORT`;
+        const dateRange = `${formatDate(start)} - ${formatDate(end)}`;
+
+        // Header
+        doc.setFontSize(22);
+        doc.setTextColor(40);
+        doc.text("Office Ledger", 14, 20);
+
+        doc.setFontSize(16);
+        doc.text(reportTitle, 14, 30);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(dateRange, 14, 36);
+
+        // Summary Stats Box
+        doc.setDrawColor(220);
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(14, 45, 180, 25, 3, 3, 'FD');
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text("REVENUE", 24, 53);
+        doc.text("EXPENSES", 74, 53);
+        doc.text("NET PROFIT", 124, 53);
+
+        doc.setFontSize(14);
+        doc.setTextColor(40);
+        doc.setFont("helvetica", "bold");
+        doc.text(formatCurrency(stats.revenue), 24, 62);
+        doc.text(formatCurrency(stats.expenses), 74, 62);
+
+        // Net Profit Color
+        if (stats.net >= 0) doc.setTextColor(22, 163, 74); // Green
+        else doc.setTextColor(220, 38, 38); // Red
+        doc.text(formatCurrency(stats.net), 124, 62);
+
+        // Reset
+        doc.setTextColor(40);
+        doc.setFont("helvetica", "normal");
+
+        // Table
+        const tableColumn = ["Account", "Type", "Category", "Balance"];
+        const tableRows = trialBalanceData.map(acc => [
+            acc.name,
+            acc.type,
+            acc.category || '-',
+            `${acc.balanceType === 'Credit' ? '-' : ''}${formatCurrency(acc.balanceAmount)}`
+        ]);
+
+        autoTable(doc, {
+            startY: 80,
+            head: [tableColumn],
+            body: tableRows,
+            theme: 'grid',
+            headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 3 },
+            foot: [['TOTAL', '', '', formatCurrency(stats.net)]],
+            footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' }
+        });
+
+        // Footer
+        const finalY = doc.lastAutoTable.finalY + 20;
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text("Generated automatically via ERP System", 14, finalY);
+        doc.text(`Date: ${new Date().toLocaleString()}`, 14, finalY + 5);
+
+        doc.save(`Financial_Report_${period}_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
+    const handleExportExcel = () => {
+        const wb = XLSX.utils.book_new();
+
+        // Summary Sheet
+        const summaryData = [
+            ['Financial Report', 'Generated on ' + new Date().toLocaleString()],
+            ['Period', `${formatDate(start)} - ${formatDate(end)}`],
+            [],
+            ['Metric', 'Amount'],
+            ['Total Revenue', stats.revenue],
+            ['Total Expenses', stats.expenses],
+            ['Net Profit', stats.net],
+            ['Assets', stats.assets],
+            ['Liabilities', stats.liabilities],
+            ['Equity', stats.equity]
+        ];
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+        // Details Sheet
+        const detailsData = trialBalanceData.map(acc => ({
+            Account: acc.name,
+            Type: acc.type,
+            Category: acc.category,
+            'Balance Amount': acc.balanceAmount,
+            'Dr/Cr': acc.balanceType
+        }));
+        const wsDetails = XLSX.utils.json_to_sheet(detailsData);
+        XLSX.utils.book_append_sheet(wb, wsDetails, "Account Details");
+
+        XLSX.writeFile(wb, `Financial_Report_${period}.xlsx`);
+    };
 
     return (
         <div className="space-y-6">
@@ -280,7 +389,7 @@ export default function GenerateReports() {
                 <div className="bg-slate-900 p-6 flex items-start justify-between">
                     <div>
                         <h3 className="text-xl font-bold text-white mb-1 capitalize">
-                            {activeTab === 'custom' ? 'Custom Period Report' : `${period.replace('_', ' ')} Report`}
+                            {activeTab === 'custom' ? 'Custom Financial Report' : `${period.replace('_', ' ')} Report`}
                         </h3>
                         <p className="text-slate-400 text-xs font-mono">
                             {formatDate(start)} - {formatDate(end)}
@@ -394,13 +503,16 @@ export default function GenerateReports() {
                 {/* Actions */}
                 <div className="bg-slate-50 p-6 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
                     <button
-                        onClick={() => window.print()}
+                        onClick={handleDownloadPDF}
                         className="flex-1 flex items-center justify-center gap-2 bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors shadow-sm active:scale-[0.98]"
                     >
                         <FileText className="w-5 h-5" />
                         Download PDF Report
                     </button>
-                    <button className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm active:scale-[0.98]">
+                    <button
+                        onClick={handleExportExcel}
+                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm active:scale-[0.98]"
+                    >
                         <Download className="w-5 h-5" />
                         Export to Excel
                     </button>

@@ -43,7 +43,7 @@ const NAV_ITEMS = [
         label: 'HR & Employees',
         path: '/hr',
         icon: Users,
-        roles: ['super_admin'],
+        roles: ['super_admin', 'ecommerce_admin', 'dev_admin'],
         children: [
             { label: 'Employees', path: '/hr/employees' },
             { label: 'Attendance', path: '/hr/attendance' },
@@ -232,65 +232,79 @@ export default function DashboardLayout() {
                 </header>
 
                 {/* Mobile Sidebar Overlay */}
-                {isMobileMenuOpen && (
-                    <div className="fixed inset-0 z-40 md:hidden">
-                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
-                        <nav className="absolute left-0 top-0 bottom-0 w-64 bg-slate-900 text-white p-4 flex flex-col h-full shadow-2xl animate-in slide-in-from-left duration-300">
-                            <div className="flex items-center justify-between mb-8">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold">L</div>
-                                    <span className="text-lg font-bold">Office Ledger</span>
+                <AnimatePresence>
+                    {isMobileMenuOpen && (
+                        <div className="fixed inset-0 z-40 md:hidden">
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            />
+                            <motion.nav
+                                initial={{ x: '-100%' }}
+                                animate={{ x: 0 }}
+                                exit={{ x: '-100%' }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                className="absolute left-0 top-0 bottom-0 w-64 bg-slate-900 text-white p-4 flex flex-col h-full shadow-2xl"
+                            >
+                                <div className="flex items-center justify-between mb-8">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold">L</div>
+                                        <span className="text-lg font-bold">Office Ledger</span>
+                                    </div>
+                                    <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 hover:bg-slate-800 rounded active:scale-90 transition-transform">
+                                        <X className="w-6 h-6" />
+                                    </button>
                                 </div>
-                                <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 hover:bg-slate-800 rounded active:scale-90 transition-transform">
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                            <div className="space-y-1 flex-1 overflow-y-auto">
-                                {NAV_ITEMS.map((item) => {
-                                    const Icon = item.icon;
-                                    return (
-                                        <div key={item.path}>
-                                            <NavLink
-                                                to={item.path}
-                                                end={!item.children}
-                                                onClick={() => setIsMobileMenuOpen(false)}
-                                                className={({ isActive }) => cn(
-                                                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                                                    isActive || (item.children && location.pathname.startsWith(item.path))
-                                                        ? "bg-indigo-600 text-white"
-                                                        : "text-slate-400 hover:text-white hover:bg-slate-800"
-                                                )}
-                                            >
-                                                {Icon && <Icon className="w-5 h-5" />}
-                                                {item.label}
-                                            </NavLink>
+                                <div className="space-y-1 flex-1 overflow-y-auto">
+                                    {NAV_ITEMS.map((item) => {
+                                        const Icon = item.icon;
+                                        return (
+                                            <div key={item.path}>
+                                                <NavLink
+                                                    to={item.path}
+                                                    end={!item.children}
+                                                    onClick={() => setIsMobileMenuOpen(false)}
+                                                    className={({ isActive }) => cn(
+                                                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                                                        isActive || (item.children && location.pathname.startsWith(item.path))
+                                                            ? "bg-indigo-600 text-white"
+                                                            : "text-slate-400 hover:text-white hover:bg-slate-800"
+                                                    )}
+                                                >
+                                                    {Icon && <Icon className="w-5 h-5" />}
+                                                    {item.label}
+                                                </NavLink>
 
-                                            {item.children && (
-                                                <div className="ml-4 mt-1 space-y-1 pl-4 border-l border-slate-700">
-                                                    {item.children.map(child => (
-                                                        <NavLink
-                                                            key={child.path}
-                                                            to={child.path}
-                                                            onClick={() => setIsMobileMenuOpen(false)}
-                                                            className={({ isActive }) => cn(
-                                                                "block px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                                                                isActive
-                                                                    ? "text-white font-semibold"
-                                                                    : "text-slate-400 hover:text-white"
-                                                            )}
-                                                        >
-                                                            {child.label}
-                                                        </NavLink>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </nav>
-                    </div>
-                )}
+                                                {item.children && (
+                                                    <div className="ml-4 mt-1 space-y-1 pl-4 border-l border-slate-700">
+                                                        {item.children.map(child => (
+                                                            <NavLink
+                                                                key={child.path}
+                                                                to={child.path}
+                                                                onClick={() => setIsMobileMenuOpen(false)}
+                                                                className={({ isActive }) => cn(
+                                                                    "block px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                                                                    isActive
+                                                                        ? "text-white font-semibold"
+                                                                        : "text-slate-400 hover:text-white"
+                                                                )}
+                                                            >
+                                                                {child.label}
+                                                            </NavLink>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </motion.nav>
+                        </div>
+                    )}
+                </AnimatePresence>
 
                 {/* Page Content */}
                 <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto">
