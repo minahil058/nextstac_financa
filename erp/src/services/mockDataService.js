@@ -150,6 +150,36 @@ export const mockDataService = {
         }, 20);
     },
 
+    addEmployee: (employee) => {
+        const employees = mockDataService.getEmployees();
+        const newEmployee = {
+            id: faker.string.uuid(),
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.firstName + ' ' + employee.lastName)}&background=random`,
+            ...employee
+        };
+        employees.unshift(newEmployee);
+        localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+        return { success: true, data: newEmployee };
+    },
+
+    updateEmployee: (id, updates) => {
+        const employees = mockDataService.getEmployees();
+        const index = employees.findIndex(e => e.id === id);
+        if (index !== -1) {
+            employees[index] = { ...employees[index], ...updates };
+            localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+            return { success: true, data: employees[index] };
+        }
+        return { success: false, error: 'Employee not found' };
+    },
+
+    deleteEmployee: (id) => {
+        const employees = mockDataService.getEmployees();
+        const newEmployees = employees.filter(e => e.id !== id);
+        localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(newEmployees));
+        return { success: true };
+    },
+
     // Products
     getProducts: () => {
         return getOrSeed(STORAGE_KEYS.PRODUCTS, () => ({
@@ -624,7 +654,7 @@ export const mockDataService = {
 
     // Leave Management
     getAllLeaves: () => {
-        const key = 'erp_mock_all_leaves_v3';
+        const key = 'erp_mock_all_leaves_v4';
         const stored = localStorage.getItem(key);
         if (stored) {
             try {
@@ -646,6 +676,8 @@ export const mockDataService = {
                     id: faker.string.uuid(),
                     employeeId: emp.id,
                     employeeName: `${emp.firstName} ${emp.lastName}`,
+                    avatar: emp.avatar,
+                    position: emp.position,
                     type: faker.helpers.arrayElement(['Sick Leave', 'Vacation', 'Personal', 'Emergency']),
                     startDate: faker.date.past({ years: 1 }).toISOString(),
                     endDate: faker.date.past({ years: 1 }).toISOString(),
@@ -663,6 +695,8 @@ export const mockDataService = {
                 id: faker.string.uuid(),
                 employeeId: emp.id,
                 employeeName: `${emp.firstName} ${emp.lastName}`,
+                avatar: emp.avatar,
+                position: emp.position,
                 type: faker.helpers.arrayElement(['Sick Leave', 'Vacation', 'Personal', 'Emergency']),
                 startDate: faker.date.soon({ days: 10 }).toISOString(),
                 endDate: faker.date.soon({ days: 15 }).toISOString(),

@@ -62,7 +62,7 @@ export default function EmployeeForm({ isOpen, onClose, onSubmit, initialData = 
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-slate-700">First Name</label>
                             <input
@@ -102,7 +102,7 @@ export default function EmployeeForm({ isOpen, onClose, onSubmit, initialData = 
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-slate-700">Department</label>
                             <input
@@ -129,7 +129,7 @@ export default function EmployeeForm({ isOpen, onClose, onSubmit, initialData = 
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-slate-700">Phone</label>
                             <input
@@ -168,7 +168,7 @@ export default function EmployeeForm({ isOpen, onClose, onSubmit, initialData = 
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-slate-700">Salary</label>
                             <div className="relative">
