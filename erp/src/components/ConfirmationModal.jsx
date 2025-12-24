@@ -13,7 +13,7 @@ export default function ConfirmationModal({
     cancelText = "Cancel",
     variant = "danger"
 }) {
-    if (!isOpen) return null;
+
 
     const isDanger = variant === 'danger';
 

@@ -4,16 +4,16 @@ import { mockDataService } from '../../../services/mockDataService';
 import {
     Users,
     Plus,
-    Trash2,
     Shield,
     AlertTriangle,
-    CheckCircle,
     DollarSign
 } from 'lucide-react';
+import AdminTableRow from '../components/AdminTableRow';
 
 export default function UserManagement() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null); // Track editing state
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -65,6 +65,9 @@ export default function UserManagement() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['admins']);
+            setIsModalOpen(false); // Close modal on success for edits too
+            setEditingId(null);
+            setFormData({ name: '', email: '', role: 'ecommerce_admin' });
         }
     });
 
@@ -109,25 +112,33 @@ export default function UserManagement() {
         updateAdminMutation.mutate({ id, updates: { status: newStatus } });
     };
 
+    const handleEdit = (admin) => {
+        setEditingId(admin.id);
+        setFormData({
+            name: admin.name,
+            email: admin.email,
+            role: admin.role
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingId(null);
+        setFormData({ name: '', email: '', role: 'ecommerce_admin' });
+        setError('');
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        addAdminMutation.mutate(formData);
+        if (editingId) {
+            updateAdminMutation.mutate({ id: editingId, updates: formData });
+        } else {
+            addAdminMutation.mutate(formData);
+        }
     };
 
     if (isLoadingAdmins) return <div className="p-8 text-center">Loading users...</div>;
-
-    const getRoleBadge = (role) => {
-        switch (role) {
-            case 'super_admin':
-                return <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold border border-purple-200">Super Admin</span>;
-            case 'ecommerce_admin':
-                return <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold border border-blue-200">E-commerce Admin</span>;
-            case 'dev_admin':
-                return <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200">Dev Admin</span>;
-            default:
-                return <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold">User</span>;
-        }
-    };
 
     return (
         <div className="space-y-6">
@@ -137,7 +148,11 @@ export default function UserManagement() {
                     <p className="text-slate-500 text-sm">Manage system administrators and their roles</p>
                 </div>
                 <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => {
+                        setEditingId(null);
+                        setFormData({ name: '', email: '', role: 'ecommerce_admin' });
+                        setIsModalOpen(true);
+                    }}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg flex items-center gap-2 font-medium transition-all shadow-sm"
                 >
                     <Plus className="w-4 h-4" />
@@ -199,87 +214,28 @@ export default function UserManagement() {
             {/* Users Table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                    <table className="w-full text-left text-sm min-w-[900px]">
                         <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
                                 <th className="px-6 py-4 font-semibold text-slate-700">Name</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700">Role</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700">Profit Share (%)</th>
-                                <th className="px-6 py-4 font-semibold text-slate-700">Est. Salary</th>
+                                <th className="px-6 py-4 font-semibold text-slate-700 hidden md:table-cell">Est. Salary</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700">Status</th>
                                 <th className="px-6 py-4 font-semibold text-slate-700 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {admins?.map((admin) => (
-                                <tr key={admin.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
-                                                {admin.name.charAt(0)}
-                                            </div>
-                                            <div>
-                                                <p className="font-medium text-slate-900">{admin.name}</p>
-                                                <p className="text-xs text-slate-500">{admin.email}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {getRoleBadge(admin.role)}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {admin.role !== 'super_admin' ? (
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
-                                                    step="0.5"
-                                                    value={admin.sharePercentage || 0}
-                                                    onChange={(e) => handleUpdateShare(admin.id, parseFloat(e.target.value))}
-                                                    className="w-20 px-2 py-1 border border-slate-200 rounded text-sm focus:border-indigo-500 outline-none"
-                                                />
-                                                <span className="text-slate-500">%</span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-slate-400 text-xs italic">N/A</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 font-mono font-medium text-slate-700">
-                                        {admin.role !== 'super_admin' ? (
-                                            `$${((basePool * (admin.sharePercentage || 0)) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                        ) : (
-                                            <span className="text-slate-400 text-xs italic">Excluded</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <button
-                                            onClick={() => handleToggleStatus(admin.id, admin.status)}
-                                            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all w-24 ${admin.status === 'Active'
-                                                ? 'bg-green-50 text-green-700 border-green-100 hover:bg-green-100'
-                                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                                                }`}
-                                        >
-                                            {admin.status === 'Active' ? (
-                                                <CheckCircle className="w-3 h-3" />
-                                            ) : (
-                                                <AlertTriangle className="w-3 h-3" />
-                                            )}
-                                            {admin.status || 'Active'}
-                                        </button>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        {admin.role !== 'super_admin' && (
-                                            <button
-                                                onClick={() => deleteAdminMutation.mutate(admin.id)}
-                                                className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors"
-                                                title="Remove Admin"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
+                                <AdminTableRow
+                                    key={admin.id}
+                                    admin={admin}
+                                    basePool={basePool}
+                                    onUpdateShare={handleUpdateShare}
+                                    onToggleStatus={handleToggleStatus}
+                                    onDelete={(id) => deleteAdminMutation.mutate(id)}
+                                    onEdit={handleEdit}
+                                />
                             ))}
                         </tbody>
                     </table>
@@ -291,7 +247,9 @@ export default function UserManagement() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-slate-100">
-                            <h2 className="text-lg font-bold text-slate-900">Add New Admin</h2>
+                            <h2 className="text-lg font-bold text-slate-900">
+                                {editingId ? 'Edit Admin' : 'Add New Admin'}
+                            </h2>
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             {error && (
@@ -338,17 +296,19 @@ export default function UserManagement() {
                             <div className="pt-4 flex justify-end gap-3">
                                 <button
                                     type="button"
-                                    onClick={() => { setIsModalOpen(false); setError(''); }}
+                                    onClick={handleCloseModal}
                                     className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={addAdminMutation.isPending}
+                                    disabled={addAdminMutation.isPending || updateAdminMutation.isPending}
                                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors disabled:opacity-70"
                                 >
-                                    {addAdminMutation.isPending ? 'Creating...' : 'Create Admin'}
+                                    {addAdminMutation.isPending || updateAdminMutation.isPending
+                                        ? 'Saving...'
+                                        : (editingId ? 'Save Changes' : 'Create Admin')}
                                 </button>
                             </div>
                         </form>

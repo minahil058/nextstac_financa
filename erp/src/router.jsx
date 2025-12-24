@@ -154,7 +154,7 @@ export const router = createBrowserRouter([
                     // HR (Super Admin)
                     {
                         path: 'hr',
-                        element: <RoleRoute allowed={['super_admin']}><HRLayout /></RoleRoute>,
+                        element: <RoleRoute allowed={['super_admin', 'ecommerce_admin', 'dev_admin']}><HRLayout /></RoleRoute>,
                         children: [
                             { index: true, element: <Navigate to="employees" replace /> },
                             { path: 'employees', element: <EmployeeList /> },

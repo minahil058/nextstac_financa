@@ -5,7 +5,6 @@ import { clsx } from 'clsx';
 
 const SalesHeader = () => {
     const navItems = [
-        { label: 'Overview', path: '/sales', icon: TrendingUp, exact: true },
         { label: 'Orders', path: '/sales/orders', icon: ShoppingCart },
         { label: 'Customers', path: '/sales/customers', icon: Users },
         { label: 'Leads', path: '/sales/leads', icon: Users },

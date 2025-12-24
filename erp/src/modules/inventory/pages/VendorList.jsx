@@ -11,16 +11,74 @@ import {
     Star,
     Trash2
 } from 'lucide-react';
-
+import VendorModal from '../components/VendorModal';
+import ConfirmationModal from '../../../components/ConfirmationModal';
+import StatusToggle from '../components/StatusToggle';
 
 export default function VendorList() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Modal states
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [selectedVendor, setSelectedVendor] = useState(null);
+    const [vendorToDelete, setVendorToDelete] = useState(null);
+
     const { data: vendors, isLoading } = useQuery({
         queryKey: ['vendors'],
         queryFn: mockDataService.getVendors,
     });
+
+    const addVendorMutation = useMutation({
+        mutationFn: (data) => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(mockDataService.addVendor(data));
+                }, 300);
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['vendors']);
+            setIsModalOpen(false);
+        }
+    });
+
+    const updateVendorMutation = useMutation({
+        mutationFn: ({ id, data }) => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(mockDataService.updateVendor(id, data));
+                }, 300);
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['vendors']);
+            setIsModalOpen(false);
+        }
+    });
+
+    // Special mutation for status to avoid closing modal if we were editing (though toggle is inline)
+    // Actually reusing updateVendorMutation is fine, but it closes modal?
+    // updateVendorMutation has `setIsModalOpen(false)` on success.
+    // If I toggle status, I don't want to close any modal (but none is open).
+    // However, if I toggle, it invalidates queries.
+    // But `setIsModalOpen(false)` might be annoying if I reused it for inline updates?
+    // Let's create `updateStatusMutation` specifically for inline updates without side effects like closing modals.
+
+    const updateStatusMutation = useMutation({
+        mutationFn: ({ id, status }) => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(mockDataService.updateVendor(id, { status }));
+                }, 300);
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['vendors']);
+        }
+    });
+
 
     const deleteVendorMutation = useMutation({
         mutationFn: (id) => {
@@ -32,8 +90,39 @@ export default function VendorList() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['vendors']);
+            setIsDeleteModalOpen(false);
+            setVendorToDelete(null);
         }
     });
+
+    const handleAddClick = () => {
+        setSelectedVendor(null);
+        setIsModalOpen(true);
+    };
+
+    const handleEditClick = (vendor) => {
+        setSelectedVendor(vendor);
+        setIsModalOpen(true);
+    };
+
+    const handleDeleteClick = (vendor) => {
+        setVendorToDelete(vendor);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (vendorToDelete) {
+            deleteVendorMutation.mutate(vendorToDelete.id);
+        }
+    };
+
+    const handleModalSubmit = (data) => {
+        if (selectedVendor) {
+            updateVendorMutation.mutate({ id: selectedVendor.id, data });
+        } else {
+            addVendorMutation.mutate(data);
+        }
+    };
 
     const filteredVendors = vendors?.filter(vendor =>
         vendor.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,6 +133,22 @@ export default function VendorList() {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <VendorModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                vendor={selectedVendor}
+                onSubmit={handleModalSubmit}
+            />
+
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                title="Delete Vendor"
+                message={`Are you sure you want to delete "${vendorToDelete?.companyName}"?`}
+                confirmText={deleteVendorMutation.isPending ? "Deleting..." : "Delete Vendor"}
+                variant="danger"
+            />
 
             <div className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -51,7 +156,10 @@ export default function VendorList() {
                         <h2 className="text-xl font-bold text-slate-900">Vendors</h2>
                         <p className="text-slate-500 text-sm">Manage suppliers and partners</p>
                     </div>
-                    <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm">
+                    <button
+                        onClick={handleAddClick}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm"
+                    >
                         <Plus className="w-4 h-4" />
                         Add Vendor
                     </button>
@@ -71,7 +179,11 @@ export default function VendorList() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredVendors?.map((vendor) => (
+                    {filteredVendors?.length === 0 ? (
+                        <div className="col-span-full text-center py-12 text-slate-500">
+                            No vendors found.
+                        </div>
+                    ) : filteredVendors?.map((vendor) => (
                         <div key={vendor.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
@@ -82,16 +194,12 @@ export default function VendorList() {
                                         <h3 className="font-bold text-slate-900 truncate max-w-[150px]">{vendor.companyName}</h3>
                                         <div className="flex items-center gap-1 text-amber-500">
                                             <Star className="w-3 h-3 fill-current" />
-                                            <span className="text-xs font-bold text-slate-600">{vendor.rating}.0</span>
+                                            <span className="text-xs font-bold text-slate-600">{vendor.rating || 5}.0</span>
                                         </div>
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => {
-                                        if (window.confirm('Are you sure you want to delete this vendor?')) {
-                                            deleteVendorMutation.mutate(vendor.id);
-                                        }
-                                    }}
+                                    onClick={() => handleDeleteClick(vendor)}
                                     className="text-slate-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-colors"
                                     title="Delete Vendor"
                                 >
@@ -115,11 +223,16 @@ export default function VendorList() {
                             </div>
 
                             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                                <span className={`px-2 py-1 rounded-md text-xs font-semibold ${vendor.status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-600'
-                                    }`}>
-                                    {vendor.status}
-                                </span>
-                                <button className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                <StatusToggle
+                                    currentStatus={vendor.status || 'Active'}
+                                    onUpdate={(newStatus) => updateStatusMutation.mutate({ id: vendor.id, status: newStatus })}
+                                    activeValue="Active"
+                                    inactiveValue="Inactive"
+                                />
+                                <button
+                                    onClick={() => handleEditClick(vendor)}
+                                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+                                >
                                     View Details
                                 </button>
                             </div>

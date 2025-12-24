@@ -9,7 +9,8 @@ import {
     Download,
     Trash2,
     Loader2,
-    FileSpreadsheet
+    FileSpreadsheet,
+    FileDown
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mockDataService } from '../../../services/mockDataService';
@@ -51,12 +52,60 @@ export default function FileManager() {
         }
     });
 
-    const handleDownload = (id, name) => {
-        setDownloadingId(id);
+    const handleDownload = (file) => {
+        setDownloadingId(file.id);
+
+        // Simulate network delay
         setTimeout(() => {
-            setDownloadingId(null);
-            showToast(`Downloaded ${name}`, 'success');
-        }, 1000);
+            try {
+                // Create dummy content based on file type
+                let content = `This is a dummy content for ${file.name}.\n\nFile Details:\nName: ${file.name}\nSize: ${file.size}\nUploaded By: ${file.uploadedBy}\nDate: ${new Date(file.date).toLocaleString()}`;
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = file.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+
+                showToast(`Downloaded ${file.name}`, 'success');
+            } catch (error) {
+                showToast('Failed to download file', 'error');
+            } finally {
+                setDownloadingId(null);
+            }
+        }, 800);
+    };
+
+    const handleExport = () => {
+        if (!filteredFiles || filteredFiles.length === 0) return;
+
+        const headers = ['Name', 'Size', 'Type', 'Uploaded By', 'Date'];
+        const csvContent = [
+            headers.join(','),
+            ...filteredFiles.map(f => [
+                `"${f.name}"`,
+                `"${f.size}"`,
+                `"${f.type}"`,
+                `"${f.uploadedBy}"`,
+                `"${new Date(f.date).toLocaleDateString()}"`
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `documents_export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        showToast('Exported list to CSV', 'success');
     };
 
     // Close dropdowns on click outside
@@ -80,24 +129,28 @@ export default function FileManager() {
     };
 
     return (
-        <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="space-y-6"
-        >
+        <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Documents</h1>
                     <p className="text-slate-500 mt-1">Manage and organize company files</p>
                 </div>
-                <button
-                    onClick={() => setIsUploadOpen(true)}
-                    className="w-full sm:w-auto px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center gap-2 font-medium transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
-                >
-                    <Upload className="w-5 h-5" />
-                    Upload File
-                </button>
+                <div className="flex gap-3 w-full sm:w-auto">
+                    <button
+                        onClick={handleExport}
+                        className="flex-1 sm:flex-none px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl flex items-center justify-center gap-2 font-medium transition-all shadow-sm active:scale-95"
+                    >
+                        <FileDown className="w-5 h-5" />
+                        Export
+                    </button>
+                    <button
+                        onClick={() => setIsUploadOpen(true)}
+                        className="flex-1 sm:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center gap-2 font-medium transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+                    >
+                        <Upload className="w-5 h-5" />
+                        Upload File
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative">
@@ -111,15 +164,10 @@ export default function FileManager() {
                 />
             </div>
 
-            <motion.div
-                variants={containerVariants}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
-            >
-                {filteredFiles?.map((file, i) => (
-                    <motion.div
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                {filteredFiles?.map((file) => (
+                    <div
                         key={file.id}
-                        variants={cardVariants}
-                        custom={i}
                         className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-300 group relative"
                     >
                         <div className="flex justify-between items-start mb-4">
@@ -169,7 +217,7 @@ export default function FileManager() {
                                 <span className="text-xs text-slate-500 font-medium truncate max-w-[80px]">{file.uploadedBy.split(' ')[0]}</span>
                             </div>
                             <button
-                                onClick={() => handleDownload(file.id, file.name)}
+                                onClick={() => handleDownload(file)}
                                 disabled={downloadingId === file.id}
                                 className="text-slate-400 hover:text-indigo-600 disabled:opacity-50 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
                             >
@@ -180,9 +228,9 @@ export default function FileManager() {
                                 )}
                             </button>
                         </div>
-                    </motion.div>
+                    </div>
                 ))}
-            </motion.div>
+            </div>
 
 
             <FileUploadModal
@@ -200,6 +248,6 @@ export default function FileManager() {
                 confirmText="Delete File"
                 variant="danger"
             />
-        </motion.div>
+        </div>
     );
 }

@@ -9,18 +9,25 @@ import {
     MoreHorizontal,
     ArrowUpRight,
     X,
-    Check
+    Check,
+    Trash2
 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import ConfirmationModal from '../../../components/ConfirmationModal';
+import PaymentStatusToggle from '../components/payment/PaymentStatusToggle';
 
 
 export default function PaymentList() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('All');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [formData, setFormData] = useState({
         vendor: '',
         amount: '',
         method: 'Bank Transfer'
     });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
 
     const queryClient = useQueryClient();
 
@@ -38,10 +45,25 @@ export default function PaymentList() {
         }
     });
 
-    const filteredPayments = payments?.filter(pay =>
-        pay.paymentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pay.vendor.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const deletePaymentMutation = useMutation({
+        mutationFn: (id) => new Promise(resolve => setTimeout(() => resolve(mockDataService.deletePayment(id)), 300)),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['payments']);
+            setDeleteModal({ isOpen: false, id: null });
+        }
+    });
+
+    const updateStatusMutation = useMutation({
+        mutationFn: ({ id, status }) => new Promise(resolve => setTimeout(() => resolve(mockDataService.updatePaymentStatus(id, status)), 300)),
+        onSuccess: () => queryClient.invalidateQueries(['payments'])
+    });
+
+    const filteredPayments = payments?.filter(pay => {
+        const matchesSearch = pay.paymentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            pay.vendor.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'All' || pay.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -157,10 +179,47 @@ export default function PaymentList() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <button className="px-4 py-2 border-2 border-slate-200 rounded-lg flex items-center gap-2 font-bold text-slate-600 hover:border-slate-900 hover:text-slate-900 transition-colors">
-                        <Filter className="w-4 h-4" />
-                        Filter
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsFilterOpen(!isFilterOpen)}
+                            className={`px-4 py-2 border-2 rounded-lg flex items-center gap-2 font-bold transition-colors ${statusFilter !== 'All'
+                                ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
+                                : 'border-slate-200 text-slate-600 hover:border-slate-900 hover:text-slate-900'
+                                }`}
+                        >
+                            <Filter className="w-4 h-4" />
+                            {statusFilter === 'All' ? 'Status' : statusFilter}
+                        </button>
+
+                        {isFilterOpen && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setIsFilterOpen(false)}
+                                />
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border-2 border-slate-100 p-2 z-20 animate-in fade-in zoom-in-95 duration-200">
+                                    {['All', 'Paid', 'Pending', 'Failed'].map((status) => (
+                                        <button
+                                            key={status}
+                                            onClick={() => {
+                                                setStatusFilter(status);
+                                                setIsFilterOpen(false);
+                                            }}
+                                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-between ${statusFilter === status
+                                                ? 'bg-indigo-50 text-indigo-700'
+                                                : 'text-slate-600 hover:bg-slate-50'
+                                                }`}
+                                        >
+                                            {status}
+                                            {statusFilter === status && (
+                                                <div className="w-2 h-2 rounded-full bg-indigo-600" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* Desktop Table View */}
@@ -198,14 +257,21 @@ export default function PaymentList() {
                                             ${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                <ArrowUpRight className="w-3 h-3" />
-                                                Paid
-                                            </span>
+                                            <PaymentStatusToggle
+                                                currentStatus={payment.status}
+                                                onUpdate={(newStatus) => updateStatusMutation.mutate({
+                                                    id: payment.id,
+                                                    status: newStatus
+                                                })}
+                                            />
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <button className="text-slate-400 hover:text-slate-900 p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                                                <MoreHorizontal className="w-5 h-5" />
+                                            <button
+                                                onClick={() => setDeleteModal({ isOpen: true, id: payment.id })}
+                                                className="text-slate-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Delete Payment"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
                                             </button>
                                         </td>
                                     </tr>
@@ -226,10 +292,13 @@ export default function PaymentList() {
                                     </div>
                                     <div className="font-extrabold text-slate-900 text-lg">{payment.vendor}</div>
                                 </div>
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                    <ArrowUpRight className="w-3 h-3" />
-                                    Paid
-                                </span>
+                                <PaymentStatusToggle
+                                    currentStatus={payment.status}
+                                    onUpdate={(newStatus) => updateStatusMutation.mutate({
+                                        id: payment.id,
+                                        status: newStatus
+                                    })}
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 text-sm border-y-2 border-slate-100 py-4">
@@ -252,14 +321,28 @@ export default function PaymentList() {
                                     <CreditCard className="w-4 h-4" />
                                     {payment.method}
                                 </div>
-                                <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-900 transition-colors">
-                                    <MoreHorizontal className="w-5 h-5" />
+                                <button
+                                    onClick={() => setDeleteModal({ isOpen: true, id: payment.id })}
+                                    className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors"
+                                >
+                                    <Trash2 className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
-        </div>
+
+
+            <ConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ isOpen: false, id: null })}
+                onConfirm={() => deletePaymentMutation.mutate(deleteModal.id)}
+                title="Delete Payment?"
+                message="Are you sure you want to delete this payment record? This action cannot be undone."
+                confirmText="Delete"
+                variant="destructive"
+            />
+        </div >
     );
 }

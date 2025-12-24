@@ -9,7 +9,8 @@ export default function ProductModal({ isOpen, onClose, product, onSubmit }) {
         price: '',
         stock: '',
         minStock: '10',
-        supplier: ''
+        supplier: '',
+        status: 'Active'
     });
 
     useEffect(() => {
@@ -21,7 +22,8 @@ export default function ProductModal({ isOpen, onClose, product, onSubmit }) {
                 price: product.price,
                 stock: product.stock,
                 minStock: product.minStock,
-                supplier: product.supplier || ''
+                supplier: product.supplier || '',
+                status: product.status || 'Active'
             });
         } else {
             setFormData({
@@ -31,7 +33,8 @@ export default function ProductModal({ isOpen, onClose, product, onSubmit }) {
                 price: '',
                 stock: '',
                 minStock: '10',
-                supplier: ''
+                supplier: '',
+                status: 'Active'
             });
         }
     }, [product, isOpen]);
@@ -146,6 +149,19 @@ export default function ProductModal({ isOpen, onClose, product, onSubmit }) {
                                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                                 placeholder="Supplier Name"
                             />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-500 uppercase">Status</label>
+                            <select
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="Active">Active</option>
+                                <option value="Draft">Draft</option>
+                                <option value="Archived">Archived</option>
+                            </select>
                         </div>
                     </div>
 

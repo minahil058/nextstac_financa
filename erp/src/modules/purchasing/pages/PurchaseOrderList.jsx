@@ -11,11 +11,14 @@ import {
     Package
 } from 'lucide-react';
 import PurchaseOrderModal from '../components/PurchaseOrderModal';
+import ConfirmationModal from '../../../components/ConfirmationModal';
 
 export default function PurchaseOrderList() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState(null);
 
     const { data: orders, isLoading } = useQuery({
         queryKey: ['purchaseOrders'],
@@ -71,6 +74,20 @@ export default function PurchaseOrderList() {
 
     return (
         <div className="min-h-screen bg-slate-50">
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setOrderToDelete(null);
+                }}
+                onConfirm={() => {
+                    if (orderToDelete) {
+                        deleteMutation.mutate(orderToDelete.id);
+                    }
+                }}
+                title="Delete Purchase Order"
+                message={orderToDelete ? `Are you sure you want to delete Purchase Order ${orderToDelete.poNumber}? This action cannot be undone.` : "Are you sure?"}
+            />
             <PurchaseOrderModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -142,9 +159,8 @@ export default function PurchaseOrderList() {
 
                             <button
                                 onClick={() => {
-                                    if (window.confirm('Delete this Purchase Order?')) {
-                                        deleteMutation.mutate(po.id);
-                                    }
+                                    setOrderToDelete(po);
+                                    setIsDeleteModalOpen(true);
                                 }}
                                 className="w-full py-2 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
                             >
@@ -189,9 +205,8 @@ export default function PurchaseOrderList() {
                                         <td className="px-6 py-4 text-right">
                                             <button
                                                 onClick={() => {
-                                                    if (window.confirm('Delete this Purchase Order?')) {
-                                                        deleteMutation.mutate(po.id);
-                                                    }
+                                                    setOrderToDelete(po);
+                                                    setIsDeleteModalOpen(true);
                                                 }}
                                                 className="text-slate-400 hover:text-red-600 transition-colors"
                                                 title="Delete PO"

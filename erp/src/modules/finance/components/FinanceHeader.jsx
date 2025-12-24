@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 
 const FinanceHeader = () => {
     const navItems = [
-        { label: 'Dashboard', path: '/finance', icon: LayoutDashboard, exact: true },
         { label: 'Invoices', path: '/finance/invoices', icon: FileText },
         { label: 'Payments', path: '/finance/payments', icon: PieChart },
         { label: 'Returns', path: '/finance/returns', icon: ArrowLeftRight },
