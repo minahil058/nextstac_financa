@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, AlertCircle, Loader2, Eye, EyeOff, Shield, BarChart3, Globe, Users, Code } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -141,6 +141,15 @@ export default function LoginPage() {
                             )}
                         </button>
                     </motion.form>
+
+                    <motion.div variants={itemVariants} className="text-center">
+                        <p className="text-slate-600">
+                            Don't have an account?{' '}
+                            <Link to="/signup" className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline">
+                                Sign up
+                            </Link>
+                        </p>
+                    </motion.div>
 
                     <motion.div variants={itemVariants} className="pt-6 border-t border-slate-200">
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 text-center lg:text-left">Quick Access (Demo)</p>

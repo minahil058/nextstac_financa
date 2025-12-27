@@ -124,3 +124,51 @@ export const deleteEmployee = (req, res) => {
         res.json({ message: 'Deleted successfully' });
     });
 };
+
+// --- Leave Management ---
+
+export const getAllLeaves = (req, res) => {
+    const sql = `SELECT * FROM leaves ORDER BY created_at DESC`;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        // Transform for frontend consistency if needed
+        const leaves = rows.map(leave => ({
+            id: leave.id,
+            employeeId: leave.employee_id,
+            employeeName: leave.employee_name,
+            department: leave.department, // Return department
+            type: leave.type,
+            startDate: leave.start_date,
+            endDate: leave.end_date,
+            days: Math.ceil((new Date(leave.end_date) - new Date(leave.start_date)) / (1000 * 60 * 60 * 24)) + 1,
+            reason: leave.reason,
+            status: leave.status,
+            requestedOn: leave.created_at,
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(leave.employee_name)}&background=random`
+        }));
+        res.json(leaves);
+    });
+};
+
+export const createLeave = (req, res) => {
+    const { employeeId, employeeName, type, startDate, endDate, reason } = req.body;
+    const id = uuidv4();
+
+    const sql = `INSERT INTO leaves (id, employee_id, employee_name, type, start_date, end_date, reason) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+    db.run(sql, [id, employeeId, employeeName, type, startDate, endDate, reason], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.status(201).json({ id, status: 'Pending', message: 'Leave requested successfully' });
+    });
+};
+
+export const updateLeaveStatus = (req, res) => {
+    const { status } = req.body;
+    const sql = `UPDATE leaves SET status = ? WHERE id = ?`;
+
+    db.run(sql, [status, req.params.id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, status });
+    });
+};

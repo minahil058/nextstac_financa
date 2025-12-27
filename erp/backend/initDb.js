@@ -46,6 +46,137 @@ const initDb = () => {
             FOREIGN KEY(department_id) REFERENCES departments(id)
         )`);
 
+        // Leaves
+        db.run(`CREATE TABLE IF NOT EXISTS leaves (
+            id TEXT PRIMARY KEY,
+            employee_id TEXT,
+            employee_name TEXT,
+            type TEXT,
+            start_date DATETIME,
+            end_date DATETIME,
+            reason TEXT,
+            status TEXT DEFAULT 'Pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(employee_id) REFERENCES users(id)
+        )`);
+
+        // --- Inventory ---
+        db.run(`CREATE TABLE IF NOT EXISTS products (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            sku TEXT UNIQUE NOT NULL,
+            category TEXT,
+            price REAL NOT NULL,
+            stock INTEGER DEFAULT 0,
+            min_stock INTEGER DEFAULT 10,
+            supplier TEXT,
+            status TEXT DEFAULT 'Active',
+            last_updated DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // --- CRM ---
+        db.run(`CREATE TABLE IF NOT EXISTS customers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            company TEXT,
+            email TEXT,
+            phone TEXT,
+            address TEXT,
+            status TEXT,
+            notes TEXT,
+            total_orders INTEGER DEFAULT 0,
+            last_order_date DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // --- Finance ---
+        db.run(`CREATE TABLE IF NOT EXISTS invoices (
+            id TEXT PRIMARY KEY,
+            invoice_number TEXT UNIQUE NOT NULL,
+            customer_name TEXT,
+            date DATETIME,
+            due_date DATETIME,
+            amount REAL,
+            status TEXT CHECK(status IN ('Paid', 'Pending', 'Overdue')),
+            items_count INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS invoice_items (
+            id TEXT PRIMARY KEY,
+            invoice_id TEXT,
+            product_id TEXT,
+            description TEXT,
+            quantity INTEGER,
+            unit_price REAL,
+            amount REAL,
+            FOREIGN KEY(invoice_id) REFERENCES invoices(id)
+        )`);
+
+        // Outgoing Payments (Vendor Payments)
+        db.run(`CREATE TABLE IF NOT EXISTS payments (
+            id TEXT PRIMARY KEY,
+            payment_number TEXT UNIQUE,
+            vendor TEXT, 
+            amount REAL,
+            date DATETIME,
+            method TEXT,
+            status TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // --- CRM (Leads) ---
+        db.run(`CREATE TABLE IF NOT EXISTS leads (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            company TEXT,
+            email TEXT,
+            phone TEXT,
+            source TEXT, 
+            status TEXT CHECK(status IN ('New', 'Contacted', 'Qualified', 'Lost')),
+            estimated_value REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // --- Purchasing (POs & Bills) ---
+        db.run(`CREATE TABLE IF NOT EXISTS purchase_orders (
+            id TEXT PRIMARY KEY,
+            po_number TEXT UNIQUE NOT NULL,
+            vendor_id TEXT,
+            vendor TEXT, -- De-normalized or just string if loose
+            date DATETIME,
+            expected_date DATETIME,
+            amount REAL,
+            status TEXT CHECK(status IN ('Draft', 'Ordered', 'Received', 'Cancelled')),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS bills (
+            id TEXT PRIMARY KEY,
+            bill_number TEXT UNIQUE NOT NULL,
+            vendor_id TEXT,
+            vendor TEXT,
+            date DATETIME,
+            due_date DATETIME,
+            amount REAL,
+            status TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Vendors
+        db.run(`CREATE TABLE IF NOT EXISTS vendors (
+            id TEXT PRIMARY KEY,
+            company_name TEXT NOT NULL,
+            contact_person TEXT,
+            email TEXT,
+            phone TEXT,
+            address TEXT,
+            rating INTEGER,
+            status TEXT DEFAULT 'Active',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
         console.log('Tables created (if not exist).');
 
         // Seed Data

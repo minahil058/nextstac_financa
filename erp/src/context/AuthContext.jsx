@@ -11,6 +11,9 @@ export const useAuth = () => {
     return context;
 };
 
+// Use Environment Variable or default to relative path (Vercel) or localhost
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -30,29 +33,65 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (email, password) => {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 800));
+        try {
+            const response = await fetch('http://localhost:5000/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
 
-        // Get users from mock service (RBAC)
-        const users = mockDataService.getUsers();
-        const user = users.find(u => u.email === email && u.password === password);
+            const data = await response.json();
 
-        if (user) {
+            if (!response.ok) {
+                return { success: false, error: data.error || 'Invalid credentials' };
+            }
+
             const sessionUser = {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role, // 'super_admin', 'ecommerce_admin', 'dev_admin'
-                permissions: ['all'], // Simplified permissions for now
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`
+                id: data.user.id,
+                name: data.user.name,
+                email: data.user.email,
+                role: data.user.role,
+                permissions: ['all'],
+                avatar: data.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.name)}&background=random`
             };
 
             setUser(sessionUser);
             localStorage.setItem('erp_user_session', JSON.stringify(sessionUser));
             return { success: true };
+        } catch (error) {
+            return { success: false, error: 'Connection error' };
         }
+    };
 
-        return { success: false, error: 'Invalid credentials' };
+    const register = async (name, email, password, role) => {
+        try {
+            const response = await fetch('http://localhost:5000/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password, role }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                return { success: false, error: data.error || 'Registration failed' };
+            }
+
+            const sessionUser = {
+                id: data.user.id,
+                name: data.user.name,
+                email: data.user.email,
+                role: data.user.role,
+                permissions: ['all'],
+                avatar: data.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.user.name)}&background=random`
+            };
+
+            setUser(sessionUser);
+            localStorage.setItem('erp_user_session', JSON.stringify(sessionUser));
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     };
 
     const logout = () => {
@@ -65,6 +104,7 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         login,
+        register,
         logout,
         isAuthenticated: !!user,
         isAdmin: user?.role === 'admin'

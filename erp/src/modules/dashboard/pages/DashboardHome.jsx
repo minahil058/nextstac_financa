@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { containerVariants, cardVariants } from '@/components/ui/animations';
@@ -23,7 +23,8 @@ import {
     TrendingDown,
     Activity,
     Clock,
-    AlertCircle
+    AlertCircle,
+    Upload
 } from 'lucide-react';
 import PendingLeaveWidget from '../components/PendingLeaveWidget';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -47,24 +48,107 @@ const DashboardHome = () => {
         queryFn: mockDataService.getAccounts,
     });
 
-    const { data: transactions } = useQuery({
+    const queryClient = useQueryClient();
+    const fileInputRef = useRef(null);
+
+    // Fetch real transactions for Finance Data
+    const baseUrl = import.meta.env.VITE_API_URL || '/api';
+
+    const { data: transactions = [] } = useQuery({
         queryKey: ['transactions'],
-        queryFn: mockDataService.getTransactions,
+        queryFn: async () => {
+            try {
+                const res = await fetch(`${baseUrl}/finance/transactions`);
+                if (!res.ok) return [];
+                return res.json();
+            } catch (e) {
+                console.warn("Failed to fetch transactions:", e);
+                return [];
+            }
+        },
     });
 
+    const { data: employees = [] } = useQuery({
+        queryKey: ['employees'],
+        queryFn: async () => {
+            try {
+                const res = await fetch(`${baseUrl}/hr/employees`);
+                if (!res.ok) return [];
+                return res.json();
+            } catch (e) { return []; }
+        }
+    });
+
+    const { data: products = [] } = useQuery({
+        queryKey: ['products'],
+        queryFn: async () => {
+            try {
+                const res = await fetch(`${baseUrl}/inventory/products`);
+                if (!res.ok) return [];
+                return res.json();
+            } catch (e) { return []; }
+        }
+    });
+
+    const { data: orders = [] } = useQuery({
+        queryKey: ['orders'],
+        queryFn: async () => {
+            try {
+                const res = await fetch(`${baseUrl}/sales/orders`);
+                if (!res.ok) return [];
+                return res.json();
+            } catch (e) { return []; }
+        }
+    });
+
+    // Derived Metrics
+    const totalRevenue = transactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const activeOrders = orders.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
+    const lowStockCount = products.filter(p => (p.stock || 0) <= (p.minStock || 10)).length;
+    const totalEmployees = employees.length;
+
+    const uploadMutation = useMutation({
+        mutationFn: async (file) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            const baseUrl = import.meta.env.VITE_API_URL || '/api';
+            const response = await fetch(`${baseUrl}/finance/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (!response.ok) throw new Error('Upload failed');
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['transactions']);
+            alert('Data imported and dashboard updated!');
+        },
+        onError: (err) => {
+            alert('Failed to import data: ' + err.message);
+        }
+    });
+
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            uploadMutation.mutate(file);
+        }
+    };
+
     // MOCK DATA FOR VISUALIZATION
+    // DYNAMIC DATA FOR VISUALIZATION
     const mockKPIs = [
         {
             title: "Total Revenue",
-            value: "$124,500.00",
-            change: "+12.5%",
+            value: `$${totalRevenue.toLocaleString()}`,
+            change: "+12.5%", // Keep mock trend for now
             trend: "up",
             icon: DollarSign,
             color: "emerald"
         },
         {
             title: "Active Orders",
-            value: "45",
+            value: activeOrders.toString(),
             change: "+3.2%",
             trend: "up",
             icon: ShoppingCart,
@@ -72,31 +156,62 @@ const DashboardHome = () => {
         },
         {
             title: "Low Stock Items",
-            value: "12",
-            change: "-2",
+            value: lowStockCount.toString(),
+            change: products.length > 0 ? `${products.length} Total` : "0",
             trend: "down",
             icon: Package,
             color: "amber"
         },
         {
             title: "Total Employees",
-            value: "28",
-            change: "+2",
+            value: totalEmployees.toString(),
+            change: "+0",
             trend: "up",
             icon: Users,
             color: "indigo"
         }
     ];
 
-    const mockRevenueData = [
-        { name: 'Jan', revenue: 40000, expenses: 24000 },
-        { name: 'Feb', revenue: 30000, expenses: 13980 },
-        { name: 'Mar', revenue: 20000, expenses: 9800 },
-        { name: 'Apr', revenue: 27800, expenses: 3908 },
-        { name: 'May', revenue: 18900, expenses: 4800 },
-        { name: 'Jun', revenue: 23900, expenses: 3800 },
-        { name: 'Jul', revenue: 34900, expenses: 4300 },
-    ];
+    // Process transactions for the Chart
+    const processChartData = () => {
+        if (!transactions.length) return [];
+
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const currentYear = new Date().getFullYear();
+
+        // Initialize last 7 months or so
+        const dataMap = new Map();
+
+        transactions.forEach(t => {
+            const date = new Date(t.date);
+            // Simple logic: If valid date
+            if (!isNaN(date)) {
+                const monthName = months[date.getMonth()];
+                if (!dataMap.has(monthName)) {
+                    dataMap.set(monthName, { name: monthName, revenue: 0, expenses: 0, order: date.getMonth() });
+                }
+
+                const amount = Number(t.amount) || 0;
+                // Assumption: Positive = Revenue, Negative = Expense (or based on type if available)
+                // For this simple version, let's assume > 0 is Revenue, < 0 is Expense
+                if (amount >= 0) {
+                    dataMap.get(monthName).revenue += amount;
+                } else {
+                    dataMap.get(monthName).expenses += Math.abs(amount);
+                }
+            }
+        });
+
+        // Convert to array and sort by month order
+        const chartData = Array.from(dataMap.values()).sort((a, b) => a.order - b.order);
+
+        // If empty, return mock data layout or empty
+        return chartData.length > 0 ? chartData : [
+            { name: 'No Data', revenue: 0, expenses: 0 }
+        ];
+    };
+
+    const revenueData = processChartData();
 
     const mockActivities = [
         { id: 1, user: "Sarah Wilson", action: "created new order", target: "#ORD-2024-001", time: "2 mins ago", type: "order" },
@@ -119,13 +234,32 @@ const DashboardHome = () => {
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
                     <p className="text-muted-foreground mt-1 text-sm">Welcome back, Admin. Here's what's happening today.</p>
                 </div>
-                <Button
-                    onClick={() => navigate('/finance/reports')}
-                    className="gap-2 shadow-sm"
-                >
-                    <DollarSign className="w-4 h-4" />
-                    Generate Report
-                </Button>
+                <div className="flex gap-2">
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept=".xlsx, .xls"
+                        className="hidden"
+                    />
+                    <Button
+                        variant="outline"
+                        onClick={() => fileInputRef.current.click()}
+                        className="gap-2 shadow-sm bg-white"
+                        disabled={uploadMutation.isPending}
+                    >
+                        <Upload className="w-4 h-4" />
+                        {uploadMutation.isPending ? 'Importing...' : 'Import Excel'}
+                    </Button>
+
+                    <Button
+                        onClick={() => navigate('/finance/reports')}
+                        className="gap-2 shadow-sm"
+                    >
+                        <DollarSign className="w-4 h-4" />
+                        Generate Report
+                    </Button>
+                </div>
             </motion.div>
 
             {/* KPI Grid */}
@@ -177,7 +311,7 @@ const DashboardHome = () => {
                         <CardContent className="pl-0">
                             <div className="h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={mockRevenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                    <AreaChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2} />

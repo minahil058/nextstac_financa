@@ -1,6 +1,8 @@
 import { faker } from '@faker-js/faker';
 import { chartOfAccounts } from '../data/chartOfAccounts';
 
+const API_URL = 'http://localhost:5000/api';
+
 const STORAGE_KEYS = {
     EMPLOYEES: 'erp_mock_employees_v3_force_fix', // Bumped key to force re-seed
     PRODUCTS: 'erp_mock_products',
@@ -180,142 +182,109 @@ export const mockDataService = {
         return { success: true };
     },
 
-    // Products
-    getProducts: () => {
-        return getOrSeed(STORAGE_KEYS.PRODUCTS, () => ({
-            id: faker.string.uuid(),
-            name: faker.commerce.productName(),
-            sku: faker.string.alphanumeric(8).toUpperCase(),
-            category: faker.commerce.department(),
-            price: parseFloat(faker.commerce.price()),
-            stock: faker.number.int({ min: 0, max: 500 }),
-            minStock: faker.number.int({ min: 10, max: 50 }),
-            status: faker.helpers.arrayElement(['Active', 'Draft', 'Archived']),
-            supplier: faker.company.name(),
-            lastUpdated: faker.date.recent().toISOString(),
-        }), 20);
+    // --- INVENTORY ---
+    getProducts: async () => {
+        const response = await fetch(`${API_URL}/inventory/products`);
+        if (!response.ok) throw new Error('Failed to fetch products');
+        return response.json();
     },
 
-    addProduct: (product) => {
-        const products = mockDataService.getProducts();
-        const newProduct = {
-            id: faker.string.uuid(),
-            lastUpdated: new Date().toISOString(),
-            status: 'Active',
-            ...product
-        };
-        products.unshift(newProduct);
-        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-        return { success: true, data: newProduct };
+    addProduct: async (product) => {
+        const response = await fetch(`${API_URL}/inventory/products`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(product),
+        });
+        if (!response.ok) throw new Error('Failed to add product');
+        return { success: true, data: await response.json() };
     },
 
-    updateProduct: (id, updates) => {
-        const products = mockDataService.getProducts();
-        const index = products.findIndex(p => p.id === id);
-        if (index !== -1) {
-            products[index] = { ...products[index], ...updates, lastUpdated: new Date().toISOString() };
-            localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-            return { success: true, data: products[index] };
-        }
-        return { success: false, error: 'Product not found' };
+    updateProduct: async (id, updates) => {
+        // Frontend sends { id, data: updates } or similar. Adjust to API expectations.
+        const response = await fetch(`${API_URL}/inventory/products/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates }),
+        });
+        if (!response.ok) throw new Error('Failed to update product');
+        return { success: true, data: await response.json() };
     },
 
-    deleteProduct: (id) => {
-        const products = mockDataService.getProducts();
-        const newProducts = products.filter(p => p.id !== id);
-        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(newProducts));
+    deleteProduct: async (id) => {
+        const response = await fetch(`${API_URL}/inventory/products/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete product');
         return { success: true };
     },
 
-    // Invoices
-    getInvoices: () => {
-        return getOrSeed('erp_mock_invoices', () => ({
-            id: faker.string.uuid(),
-            invoiceNumber: `INV-${faker.string.numeric(5)}`,
-            customer: faker.person.fullName(),
-            date: faker.date.recent({ days: 30 }).toISOString(),
-            dueDate: faker.date.soon({ days: 30 }).toISOString(),
-            amount: parseFloat(faker.finance.amount({ min: 100, max: 5000, dec: 2 })),
-            status: faker.helpers.arrayElement(['Paid', 'Pending', 'Overdue']),
-            items: faker.number.int({ min: 1, max: 5 })
-        }), 15);
+    // --- FINANCE: INVOICES ---
+    getInvoices: async () => {
+        const response = await fetch(`${API_URL}/finance/invoices`);
+        if (!response.ok) throw new Error('Failed to fetch invoices');
+        return response.json();
     },
 
-    addInvoice: (invoice) => {
-        const invoices = mockDataService.getInvoices();
-        const newInvoice = {
-            id: faker.string.uuid(),
-            invoiceNumber: `INV-${faker.string.numeric(5)}`,
-            date: new Date().toISOString(),
-            status: 'Pending',
-            amount: 0,
-            ...invoice
-        };
-        invoices.unshift(newInvoice);
-        localStorage.setItem('erp_mock_invoices', JSON.stringify(invoices));
-        return { success: true, data: newInvoice };
+    addInvoice: async (invoice) => {
+        const response = await fetch(`${API_URL}/finance/invoices`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(invoice),
+        });
+        if (!response.ok) throw new Error('Failed to add invoice');
+        return { success: true, data: await response.json() };
     },
 
-    updateInvoiceStatus: (id, status) => {
-        const invoices = mockDataService.getInvoices();
-        const index = invoices.findIndex(i => i.id === id);
-        if (index !== -1) {
-            invoices[index].status = status;
-            localStorage.setItem('erp_mock_invoices', JSON.stringify(invoices));
-            return { success: true, data: invoices[index] };
-        }
-        return { success: false, error: 'Invoice not found' };
+    updateInvoiceStatus: async (id, status) => {
+        const response = await fetch(`${API_URL}/finance/invoices/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+        });
+        if (!response.ok) throw new Error('Failed to update invoice status');
+        return { success: true, data: await response.json() };
     },
 
-    deleteInvoice: (id) => {
-        const invoices = mockDataService.getInvoices();
-        const newInvoices = invoices.filter(i => i.id !== id);
-        localStorage.setItem('erp_mock_invoices', JSON.stringify(newInvoices));
+    deleteInvoice: async (id) => {
+        const response = await fetch(`${API_URL}/finance/invoices/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete invoice');
         return { success: true };
     },
 
-    // Payments
-    getPayments: () => {
-        return getOrSeed('erp_mock_payments_v2', () => ({
-            id: faker.string.uuid(),
-            paymentNumber: `PAY-${faker.string.numeric(5)}`,
-            vendor: faker.company.name(),
-            date: faker.date.recent({ days: 30 }).toISOString(),
-            amount: parseFloat(faker.finance.amount({ min: 50, max: 2000, dec: 2 })),
-            method: faker.helpers.arrayElement(['Bank Transfer', 'Credit Card', 'Cash']),
-            status: faker.helpers.arrayElement(['Paid', 'Pending', 'Failed'])
-        }), 15);
+    // --- FINANCE: PAYMENTS ---
+    getPayments: async () => {
+        const response = await fetch(`${API_URL}/finance/payments`);
+        if (!response.ok) throw new Error('Failed to fetch payments');
+        return response.json();
     },
 
-    updatePaymentStatus: (id, status) => {
-        const payments = mockDataService.getPayments();
-        const index = payments.findIndex(p => p.id === id);
-        if (index !== -1) {
-            payments[index].status = status;
-            localStorage.setItem('erp_mock_payments_v2', JSON.stringify(payments));
-            return { success: true, data: payments[index] };
-        }
-        return { success: false, error: 'Payment not found' };
+    addPayment: async (payment) => {
+        const response = await fetch(`${API_URL}/finance/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payment),
+        });
+        if (!response.ok) throw new Error('Failed to add payment');
+        return { success: true, data: await response.json() };
     },
 
-    addPayment: (payment) => {
-        const payments = mockDataService.getPayments();
-        const newPayment = {
-            id: faker.string.uuid(),
-            paymentNumber: `PAY-${faker.string.numeric(5)}`,
-            date: new Date().toISOString(),
-            status: 'Completed',
-            ...payment
-        };
-        payments.unshift(newPayment);
-        localStorage.setItem('erp_mock_payments_v2', JSON.stringify(payments));
-        return { success: true, data: newPayment };
+    updatePaymentStatus: async (id, status) => {
+        const response = await fetch(`${API_URL}/finance/payments/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+        });
+        if (!response.ok) throw new Error('Failed to update payment status');
+        return { success: true, data: await response.json() };
     },
 
-    deletePayment: (id) => {
-        const payments = mockDataService.getPayments();
-        const newPayments = payments.filter(p => p.id !== id);
-        localStorage.setItem('erp_mock_payments_v2', JSON.stringify(newPayments));
+    deletePayment: async (id) => {
+        const response = await fetch(`${API_URL}/finance/payments/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete payment');
         return { success: true };
     },
 
@@ -452,45 +421,39 @@ export const mockDataService = {
         return { success: true };
     },
 
-    // Customers (for Sales)
-    getCustomers: () => {
-        return getOrSeed(STORAGE_KEYS.CUSTOMERS, () => ({
-            id: faker.string.uuid(),
-            name: faker.person.fullName(),
-            company: faker.company.name(),
-            email: faker.internet.email(),
-            phone: faker.phone.number(),
-            address: faker.location.streetAddress() + ', ' + faker.location.city(),
-            status: faker.helpers.arrayElement(['Active', 'Inactive', 'Lead']),
-            notes: faker.lorem.paragraph(),
-            totalOrders: faker.number.int({ min: 0, max: 20 }),
-            lastOrderDate: faker.date.recent().toISOString()
-        }), 12);
+    // --- CRM: CUSTOMERS ---
+    getCustomers: async () => {
+        const response = await fetch(`${API_URL}/crm/customers`);
+        if (!response.ok) throw new Error('Failed to fetch customers');
+        return response.json();
     },
 
-    addCustomer: (customer) => {
-        const customers = mockDataService.getCustomers();
-        const newCustomer = {
-            id: faker.string.uuid(),
-            totalOrders: 0,
-            lastOrderDate: null,
-            status: 'Active',
-            ...customer
-        };
-        customers.unshift(newCustomer);
-        localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(customers));
-        return { success: true, data: newCustomer };
+    addCustomer: async (customer) => {
+        const response = await fetch(`${API_URL}/crm/customers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(customer),
+        });
+        if (!response.ok) throw new Error('Failed to add customer');
+        return { success: true, data: await response.json() };
     },
 
-    updateCustomer: (id, updates) => {
-        const customers = mockDataService.getCustomers();
-        const index = customers.findIndex(c => c.id === id);
-        if (index !== -1) {
-            customers[index] = { ...customers[index], ...updates };
-            localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(customers));
-            return { success: true, data: customers[index] };
-        }
-        return { success: false, error: 'Customer not found' };
+    updateCustomer: async (id, updates) => {
+        const response = await fetch(`${API_URL}/crm/customers/${id}`, {
+            method: 'PUT', // Route uses PUT
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates }),
+        });
+        if (!response.ok) throw new Error('Failed to update customer');
+        return { success: true, data: await response.json() };
+    },
+
+    deleteCustomer: async (id) => {
+        const response = await fetch(`${API_URL}/crm/customers/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete customer');
+        return { success: true };
     },
 
     // Orders (Sales)

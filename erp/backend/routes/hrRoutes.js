@@ -9,4 +9,9 @@ router.post('/employees', hrController.createEmployee);
 router.put('/employees/:id', hrController.updateEmployee);
 router.delete('/employees/:id', hrController.deleteEmployee);
 
+// Leaves
+router.get('/leaves', hrController.getAllLeaves);
+router.post('/leaves', hrController.createLeave);
+router.put('/leaves/:id/status', hrController.updateLeaveStatus);
+
 export default router;

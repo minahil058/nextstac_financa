@@ -43,7 +43,7 @@ const NAV_ITEMS = [
         label: 'HR & Employees',
         path: '/hr',
         icon: Users,
-        roles: ['super_admin', 'ecommerce_admin', 'dev_admin'],
+        roles: ['super_admin', 'ecommerce_admin', 'dev_admin', 'user'],
         children: [
             { label: 'Employees', path: '/hr/employees' },
             { label: 'Attendance', path: '/hr/attendance' },
@@ -110,6 +110,7 @@ const NAV_ITEMS = [
 
 export default function DashboardLayout() {
     const { logout, user } = useAuth();
+    console.log('Current User in DashboardLayout:', user);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const location = useLocation();
     const currentOutlet = useOutlet();
@@ -188,7 +189,7 @@ export default function DashboardLayout() {
                 <div className="p-3 border-t border-slate-800">
                     <div className="mb-2 px-2">
                         <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Logged in as</p>
-                        <p className="text-xs font-medium text-white truncate">{user?.name}</p>
+                        <p className="text-xs font-medium text-white truncate">{user?.name} ({user?.role})</p>
                     </div>
                     <button
                         onClick={logout}
